@@ -16,12 +16,15 @@ const applicationTables = {
     userId: v.id("users"),
     content: v.string(),
   }).index("by_team", ["teamId"]),
-  profiles: defineTable({
+ // In schema.ts, temporarily allow both fields:
+profiles: defineTable({
     userId: v.id("users"),
     name: v.string(),
     role: v.string(),
     image: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
+    imageId: v.optional(v.string()), // Add this temporarily
+}).index("by_userId", ["userId"]),
+
 };
 
 export default defineSchema({
