@@ -1,4 +1,4 @@
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
@@ -7,9 +7,21 @@ import { useState } from "react";
 import { Profile } from "./Profile";
 import { Teams } from "./Teams";
 import { TeamsList } from "./TeamsList";
+import { CreateTeam } from "./CreateTeam";
 
 export default function App() {
   const [page, setPage] = useState("home");
+
+  // Handle hash-based routing
+  useState(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash) setPage(hash);
+    };
+    window.addEventListener('hashchange', handleHash);
+    handleHash(); // Handle initial hash
+    return () => window.removeEventListener('hashchange', handleHash);
+  });
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -42,7 +54,6 @@ export default function App() {
               All Teams
             </button>
           </Authenticated>
-          <SignOutButton />
         </nav>
       </header>
       <main className="flex-1 p-8">
@@ -56,31 +67,6 @@ export default function App() {
 }
 
 function Content({ page }: { page: string }) {
-  const loggedInUser = useQuery(api.auth.loggedInUser);
-
-  if (loggedInUser === undefined) {
-    return (
-      <div className="flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
-
-  if (!loggedInUser) {
-    return (
-      <div className="flex flex-col gap-8">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold accent-text mb-4">Welcome to Hackathon Hub</h1>
-          <p className="text-xl text-slate-600 mb-4">
-            Join us for an exciting weekend of innovation, collaboration, and coding!
-            Create or join a team, showcase your skills, and compete for amazing prizes.
-          </p>
-          <SignInForm />
-        </div>
-      </div>
-    );
-  }
-
   switch (page) {
     case "profile":
       return <Profile />;
@@ -88,14 +74,19 @@ function Content({ page }: { page: string }) {
       return <Teams />;
     case "teamslist":
       return <TeamsList />;
+    case "createteam":
+      return <CreateTeam />;
     default:
       return (
         <div className="text-center">
-          <h1 className="text-5xl font-bold accent-text mb-4">Welcome back!</h1>
+          <h1 className="text-5xl font-bold accent-text mb-4">Welcome to Hackathon Hub</h1>
           <p className="text-xl text-slate-600">
             Get ready for an amazing hackathon experience. Update your profile, join a team,
             and start collaborating with fellow hackers!
           </p>
+          <Unauthenticated>
+            <SignInForm />
+          </Unauthenticated>
         </div>
       );
   }

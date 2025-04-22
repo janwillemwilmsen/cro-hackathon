@@ -30,14 +30,13 @@ function TeamChat({ teamId }: { teamId: Id<"teams"> }) {
     });
   }
 
-  // Find member profile by userId
   function getMemberProfile(userId: Id<"users">) {
     const member = members.find(m => m.userId === userId);
     return member?.profile;
   }
 
   if (!comments.length && !members.length) {
-    return null; // Not a member, don't show chat
+    return null;
   }
 
   return (
@@ -50,28 +49,7 @@ function TeamChat({ teamId }: { teamId: Id<"teams"> }) {
           </div>
         </div>
         <div className="bg-white rounded-lg border h-96 flex flex-col">
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-            {comments.map((comment) => {
-              const profile = getMemberProfile(comment.userId);
-              return (
-                <div key={comment._id} className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                    {profile?.name?.[0]?.toUpperCase() || '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <p className="font-medium text-sm">{profile?.name || 'Unknown User'}</p>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(comment._creationTime)}
-                      </span>
-                    </div>
-                    <p className="text-gray-900 break-words">{comment.content}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="border-t p-3 flex gap-2">
+          <div className="border-b p-3 flex gap-2">
             <input
               type="text"
               value={comment}
@@ -94,6 +72,27 @@ function TeamChat({ teamId }: { teamId: Id<"teams"> }) {
               </svg>
             </button>
           </div>
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+            {[...comments].reverse().map((comment) => {
+              const profile = getMemberProfile(comment.userId);
+              return (
+                <div key={comment._id} className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                    {profile?.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <p className="font-medium text-sm">{profile?.name || 'Unknown User'}</p>
+                      <span className="text-xs text-gray-500">
+                        {formatDate(comment._creationTime)}
+                      </span>
+                    </div>
+                    <p className="text-gray-900 break-words">{comment.content}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -102,24 +101,8 @@ function TeamChat({ teamId }: { teamId: Id<"teams"> }) {
 
 export function Teams() {
   const teams = useQuery(api.teams.myTeams);
-  const createTeam = useMutation(api.teams.create);
   const joinTeam = useMutation(api.teams.joinTeam);
   const leaveTeam = useMutation(api.teams.leaveTeam);
-  
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-
-  async function handleCreateTeam(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await createTeam({ name, description });
-      setName("");
-      setDescription("");
-      toast.success("Team created!");
-    } catch (error) {
-      toast.error("Failed to create team");
-    }
-  }
 
   async function handleJoinTeam(teamId: Id<"teams">) {
     try {
@@ -144,37 +127,6 @@ export function Teams() {
 
   return (
     <div className="space-y-8">
-      <div className="max-w-md mx-auto">
-        <h2 className="text-2xl font-bold mb-4">Create a Team</h2>
-        <form onSubmit={handleCreateTeam} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Team Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border rounded"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700"
-          >
-            Create Team
-          </button>
-        </form>
-      </div>
-
       <div>
         <h2 className="text-2xl font-bold mb-4">Your Teams</h2>
         <div className="space-y-4">

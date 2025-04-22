@@ -7,26 +7,28 @@ export const create = mutation({
     name: v.string(),
     description: v.string(),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    return await ctx.db.insert("teams", {
+    // Create the team
+    const teamId = await ctx.db.insert("teams", {
       name: args.name,
       description: args.description,
       captainId: userId,
       members: [userId],
       votes: 0,
     });
+
+    return teamId;
   },
 });
 
 export const list = query({
   args: {},
-  handler: async (ctx) => {
+  async handler(ctx) {
     return await ctx.db
       .query("teams")
-      .withIndex("by_votes")
       .order("desc")
       .collect();
   },
@@ -34,12 +36,14 @@ export const list = query({
 
 export const myTeams = query({
   args: {},
-  handler: async (ctx) => {
+  async handler(ctx) {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
-    const teams = await ctx.db.query("teams").collect();
-    return teams.filter(team => team.members.includes(userId));
+    return await ctx.db
+      .query("teams")
+      .filter((q) => q.eq(q.field("members"), [userId]))
+      .collect();
   },
 });
 
@@ -47,19 +51,26 @@ export const joinTeam = mutation({
   args: {
     teamId: v.id("teams"),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
+
+    // Check if user is already in a team
+    const currentTeams = await ctx.db
+      .query("teams")
+      .filter((q) => q.eq(q.field("members"), [userId]))
+      .collect();
+
+    if (currentTeams.length > 0) {
+      throw new Error("You must leave your current team before joining another");
+    }
 
     const team = await ctx.db.get(args.teamId);
     if (!team) throw new Error("Team not found");
 
-    if (team.members.includes(userId)) {
-      throw new Error("Already a member of this team");
-    }
-
+    // Join the team
     await ctx.db.patch(args.teamId, {
-      members: [...team.members, userId],
+      members: [userId],
     });
   },
 });
@@ -68,7 +79,7 @@ export const leaveTeam = mutation({
   args: {
     teamId: v.id("teams"),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -79,30 +90,32 @@ export const leaveTeam = mutation({
       throw new Error("Team captain cannot leave the team");
     }
 
-    if (!team.members.includes(userId)) {
-      throw new Error("Not a member of this team");
-    }
-
+    // Leave the team
     await ctx.db.patch(args.teamId, {
-      members: team.members.filter(id => id !== userId),
+      members: [],
     });
   },
 });
 
-export const vote = mutation({
+export const getTeamMembers = query({
   args: {
     teamId: v.id("teams"),
   },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
+  async handler(ctx, args) {
     const team = await ctx.db.get(args.teamId);
-    if (!team) throw new Error("Team not found");
+    if (!team) return [];
 
-    await ctx.db.patch(args.teamId, {
-      votes: (team.votes || 0) + 1,
-    });
+    const memberProfiles = await Promise.all(
+      team.members.map(async (userId) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .filter((q) => q.eq(q.field("userId"), userId))
+          .unique();
+        return { userId, profile };
+      })
+    );
+
+    return memberProfiles;
   },
 });
 
@@ -111,18 +124,19 @@ export const addComment = mutation({
     teamId: v.id("teams"),
     content: v.string(),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
+    // Check if user is a member of the team
     const team = await ctx.db.get(args.teamId);
     if (!team) throw new Error("Team not found");
-
+    
     if (!team.members.includes(userId)) {
       throw new Error("Only team members can comment");
     }
 
-    await ctx.db.insert("teamComments", {
+    return await ctx.db.insert("teamComments", {
       teamId: args.teamId,
       userId,
       content: args.content,
@@ -134,44 +148,38 @@ export const getComments = query({
   args: {
     teamId: v.id("teams"),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
 
+    // Check if user is a member of the team
     const team = await ctx.db.get(args.teamId);
-    if (!team) return [];
-
-    // Only show comments to team members
-    if (!team.members.includes(userId)) {
+    if (!team || !team.members.includes(userId)) {
       return [];
     }
 
     return await ctx.db
       .query("teamComments")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .order("asc")
+      .order("desc")
       .collect();
   },
 });
 
-export const getTeamMembers = query({
+export const vote = mutation({
   args: {
     teamId: v.id("teams"),
   },
-  handler: async (ctx, args) => {
+  async handler(ctx, args) {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
     const team = await ctx.db.get(args.teamId);
-    if (!team) return [];
+    if (!team) throw new Error("Team not found");
 
-    const memberProfiles = await Promise.all(
-      team.members.map(async (userId) => {
-        const profile = await ctx.db
-          .query("profiles")
-          .withIndex("by_user", (q) => q.eq("userId", userId))
-          .first();
-        return { userId, profile };
-      })
-    );
-
-    return memberProfiles;
+    // Increment the votes
+    await ctx.db.patch(args.teamId, {
+      votes: (team.votes || 0) + 1,
+    });
   },
 });

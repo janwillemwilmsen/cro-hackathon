@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+ import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const get = query({
@@ -12,7 +12,7 @@ export const get = query({
 
     return await ctx.db
       .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
   },
 });
@@ -28,7 +28,7 @@ export const update = mutation({
 
     const existing = await ctx.db
       .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
     if (existing) {
@@ -59,20 +59,18 @@ export const saveImage = mutation({
 
     const profile = await ctx.db
       .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
     if (profile) {
-      await ctx.db.patch(profile._id, { imageId: args.storageId });
+      await ctx.db.patch(profile._id, { image: args.storageId });
     } else {
       await ctx.db.insert("profiles", {
         userId,
         name: "",
         role: "",
-        imageId: args.storageId,
+        image: args.storageId,
       });
     }
   },
 });
-
-// Vercel push

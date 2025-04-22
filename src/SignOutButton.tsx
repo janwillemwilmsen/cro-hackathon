@@ -1,4 +1,3 @@
-"use client";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 
@@ -11,8 +10,15 @@ export function SignOutButton() {
   }
 
   return (
-    <button className="px-4 py-2 rounded-lg transition-colors bg-blue-500 text-white" onClick={() => void signOut()}>
-      Sign out
+    <button 
+      className="text-gray-600 hover:text-gray-800" 
+      onClick={() => {
+        signOut();
+        window.location.hash = ''; // Clear hash to go to homepage
+        window.location.reload(); // Force reload to homepage
+      }}
+    >
+      Sign Out
     </button>
   );
 }
